@@ -13,7 +13,7 @@ This project aims to collect code from various sources to create an accessible p
 
 ## Camera Calibration
 ### Getting Intrinsic Parameters
-  - Reuse code from HW3 to leverage OpenCV functions \texttt{findChessboardCorners()} and \texttt{calibrateCamera()}.
+  - Reuse code from HW3 to leverage OpenCV functions `findChessboardCorners()` and `calibrateCamera()`.
 
 ### Getting Poses
   - Use structure-from-motion algorithms, such as COLMAP, to obtain extrinsic parameters (rotation $R$ and translation $t$) as required by NeRF [[2]](https://github.com/Fyusion/LLFF/blob/master/llff/poses/colmap_wrapper.py#L23).
