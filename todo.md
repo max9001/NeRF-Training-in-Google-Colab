@@ -1,0 +1,6 @@
+- [x] make sure train code leverages GPU
+- [x] verify output of model is correct
+- [ ] split training into multiple phases
+  - [ ] cell that trains and save model params
+  - [ ] cell that loads model checkpoint and outputs a video
+  - [ ] cell that loads model checkpoint and outputs still images
