@@ -1,5 +1,5 @@
-- [x] make sure train code leverages GPU
-- [x] verify output of model is correct
+- [x] make sure train code leverages GPU 11/21
+- [x] verify output of model is correct  11/22
 - [ ] split training into multiple phases
   - [ ] cell that trains and save model params
   - [ ] cell that loads model checkpoint and outputs a video
