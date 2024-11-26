@@ -1,0 +1,52 @@
+# Ignore notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore temporary files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log
+
+# Ignore specific files and directories
+images/*
+data/nerf_synthetic/lego/*
+__pycache__/*
+logs/*
+
+# Ignore tar files
+*.tar
+
+# Ignore environment files
+.env
+*.env
+*.venv
+*.DS_Store
+
+# Ignore IDE/Editor specific files
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+# Ignore dependencies
+venv/
+.env/
+*.egg-info/
+*.egg
+*.manifest
+__pycache__/
+dist/
+build/
+*.wheel
+
+# Ignore pipeline images
+nerf_pytorch/imgs/pipeline.jpg
+
+max@max-MacBookAir:~/NeRF-Training-in-Google-Colab$ 
+
