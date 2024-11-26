@@ -882,91 +882,142 @@ def train(args):
         
         
         
-def generate_video(args):
+def generate_render(args):
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     np.random.seed(0)
     DEBUG = False
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
-    render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args)
-    #----------------------
-    images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.half_res, args.testskip)
-    print('Loaded blender', images.shape, render_poses.shape, hwf, args.datadir)
-    i_train, i_val, i_test = i_split
+    K = None
+    if args.dataset_type == 'llff':
+        images, poses, bds, render_poses, i_test = load_llff_data(args.datadir, args.factor,
+                                                                recenter=True, bd_factor=.75,
+                                                                spherify=args.spherify)
+        hwf = poses[0,:3,-1]
+        poses = poses[:,:3,:4]
+        print('Loaded llff', images.shape, render_poses.shape, hwf, args.datadir)
+        if not isinstance(i_test, list):
+            i_test = [i_test]
 
-    near = 2.
-    far = 6.
+        if args.llffhold > 0:
+            print('Auto LLFF holdout,', args.llffhold)
+            i_test = np.arange(images.shape[0])[::args.llffhold]
 
-    if args.white_bkgd:
-        images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
+        i_val = i_test
+        i_train = np.array([i for i in np.arange(int(images.shape[0])) if
+                        (i not in i_test and i not in i_val)])
+
+        print('DEFINING BOUNDS')
+        if args.no_ndc:
+            near = np.ndarray.min(bds) * .9
+            far = np.ndarray.max(bds) * 1.
+            
+        else:
+            near = 0.
+            far = 1.
+        print('NEAR FAR', near, far)
+
+    elif args.dataset_type == 'blender':
+        images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.half_res, args.testskip)
+        print('Loaded blender', images.shape, render_poses.shape, hwf, args.datadir)
+        i_train, i_val, i_test = i_split
+
+        near = 2.
+        far = 6.
+
+        if args.white_bkgd:
+            images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
+        else:
+            images = images[...,:3]
+
+    elif args.dataset_type == 'LINEMOD':
+        images, poses, render_poses, hwf, K, i_split, near, far = load_LINEMOD_data(args.datadir, args.half_res, args.testskip)
+        print(f'Loaded LINEMOD, images shape: {images.shape}, hwf: {hwf}, K: {K}')
+        print(f'[CHECK HERE] near: {near}, far: {far}.')
+        i_train, i_val, i_test = i_split
+
+        if args.white_bkgd:
+            images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
+        else:
+            images = images[...,:3]
+
+    elif args.dataset_type == 'deepvoxels':
+
+        images, poses, render_poses, hwf, i_split = load_dv_data(scene=args.shape,
+                                                                basedir=args.datadir,
+                                                                testskip=args.testskip)
+
+        print('Loaded deepvoxels', images.shape, render_poses.shape, hwf, args.datadir)
+        i_train, i_val, i_test = i_split
+
+        hemi_R = np.mean(np.linalg.norm(poses[:,:3,-1], axis=-1))
+        near = hemi_R-1.
+        far = hemi_R+1.
+
     else:
-        images = images[...,:3]
-    #-------------------------
-    
-    
+        print('Unknown dataset type', args.dataset_type, 'exiting')
+        return
+
+    # Cast intrinsics to right types
     H, W, focal = hwf
     H, W = int(H), int(W)
     hwf = [H, W, focal]
-    
-    K = np.array([
+
+    if K is None:
+        K = np.array([
             [focal, 0, 0.5*W],
             [0, focal, 0.5*H],
             [0, 0, 1]
         ])
-    #-------------------------
 
-    with torch.no_grad():
-        rgbs, disps = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test)
-    print('Done, saving', rgbs.shape, disps.shape)
-    # moviebase = os.path.join(args.basedir, args.expname, '{}_spiral_{:06d}_'.format(args.expname, i))
-    moviebase = os.path.join(args.basedir, args.expname, '{}_spiral_'.format(args.expname))
-    imageio.mimwrite(moviebase + 'rgb.mp4', to8b(rgbs), fps=30, quality=8)
-    imageio.mimwrite(moviebase + 'disp.mp4', to8b(disps / np.max(disps)), fps=30, quality=8)
+    if args.render_test:
+        render_poses = np.array(poses[i_test])
 
+    # Create log dir and copy the config file
+    basedir = args.basedir
+    expname = args.expname
+    os.makedirs(os.path.join(basedir, expname), exist_ok=True)
+    f = os.path.join(basedir, expname, 'args.txt')
+    with open(f, 'w') as file:
+        for arg in sorted(vars(args)):
+            attr = getattr(args, arg)
+            file.write('{} = {}\n'.format(arg, attr))
+    if args.config is not None:
+        f = os.path.join(basedir, expname, 'config.txt')
+        with open(f, 'w') as file:
+            file.write(open(args.config, 'r').read())
 
-def generate_stills(args):
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    np.random.seed(0)
-    DEBUG = False
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
-
+    # Create nerf model
     render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args)
-    #----------------------
-    images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.half_res, args.testskip)
-    print('Loaded blender', images.shape, render_poses.shape, hwf, args.datadir)
-    i_train, i_val, i_test = i_split
+    global_step = start
 
-    near = 2.
-    far = 6.
+    bds_dict = {
+        'near' : near,
+        'far' : far,
+    }
+    render_kwargs_train.update(bds_dict)
+    render_kwargs_test.update(bds_dict)
 
-    if args.white_bkgd:
-        images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
-    else:
-        images = images[...,:3]
-    #-------------------------
-    
-    H, W, focal = hwf
-    H, W = int(H), int(W)
-    hwf = [H, W, focal]
-    
-    K = np.array([
-            [focal, 0, 0.5*W],
-            [0, focal, 0.5*H],
-            [0, 0, 1]
-        ])
-    #-------------------------
-    
-    testsavedir = os.path.join(args.basedir, args.expname, 'testset')
-    os.makedirs(testsavedir, exist_ok=True)
-    print('test poses shape', poses[i_test].shape)
+    # Move testing data to GPU
+    render_poses = torch.Tensor(render_poses).to(device)
+
+
+    print('RENDER ONLY')
     with torch.no_grad():
-        render_path(torch.Tensor(poses[i_test]).to(device), hwf, K, args.chunk, render_kwargs_test, gt_imgs=images[i_test], savedir=testsavedir)
-    print('Saved test set')
+        if args.render_test:
+            # render_test switches to test poses
+            images = images[i_test]
+        else:
+            # Default is smoother render_poses path
+            images = None
 
+        testsavedir = os.path.join(basedir, expname, 'renderonly_{}_{:06d}'.format('test' if args.render_test else 'path', start))
+        os.makedirs(testsavedir, exist_ok=True)
+        print('test poses shape', render_poses.shape)
 
-if __name__=='__main__':
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        rgbs, _ = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
+        print('Done rendering', testsavedir)
+        imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
 
-    train()
+        return
