@@ -1,9 +1,9 @@
 - [x] make sure train code leverages GPU 11/21
 - [x] verify output of model is correct  11/22
 - [ ] split training into multiple phases
-  - [x] cell that trains and save model params 11/25
-<del>  - [ ] cell that loads model checkpoint and outputs a video </del>
-<del>  - [ ] cell that loads model checkpoint and outputs still images </del>
+  - [x] cell that trains and save model params 11/25 //
+  - <del> cell that loads model checkpoint and outputs a video </del>
+  - <del> cell that loads model checkpoint and outputs still images </del>
   - [ ] cell that loads model checkpoint and outputs still images + video  
     - [x] MVP 11/25
     - [x] Verify output is reasonable 11/26
