@@ -919,9 +919,51 @@ def generate_video(args):
     with torch.no_grad():
         rgbs, disps = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test)
     print('Done, saving', rgbs.shape, disps.shape)
-    moviebase = os.path.join(args.basedir, args.expname, '{}_spiral_{:06d}_'.format(args.expname, i))
+    # moviebase = os.path.join(args.basedir, args.expname, '{}_spiral_{:06d}_'.format(args.expname, i))
+    moviebase = os.path.join(args.basedir, args.expname, '{}_spiral_'.format(args.expname))
     imageio.mimwrite(moviebase + 'rgb.mp4', to8b(rgbs), fps=30, quality=8)
     imageio.mimwrite(moviebase + 'disp.mp4', to8b(disps / np.max(disps)), fps=30, quality=8)
+
+
+def generate_stills(args):
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    np.random.seed(0)
+    DEBUG = False
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+
+    render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args)
+    #----------------------
+    images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.half_res, args.testskip)
+    print('Loaded blender', images.shape, render_poses.shape, hwf, args.datadir)
+    i_train, i_val, i_test = i_split
+
+    near = 2.
+    far = 6.
+
+    if args.white_bkgd:
+        images = images[...,:3]*images[...,-1:] + (1.-images[...,-1:])
+    else:
+        images = images[...,:3]
+    #-------------------------
+    
+    H, W, focal = hwf
+    H, W = int(H), int(W)
+    hwf = [H, W, focal]
+    
+    K = np.array([
+            [focal, 0, 0.5*W],
+            [0, focal, 0.5*H],
+            [0, 0, 1]
+        ])
+    #-------------------------
+    
+    testsavedir = os.path.join(args.basedir, args.expname, 'testset')
+    os.makedirs(testsavedir, exist_ok=True)
+    print('test poses shape', poses[i_test].shape)
+    with torch.no_grad():
+        render_path(torch.Tensor(poses[i_test]).to(device), hwf, K, args.chunk, render_kwargs_test, gt_imgs=images[i_test], savedir=testsavedir)
+    print('Saved test set')
 
 
 if __name__=='__main__':

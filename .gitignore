@@ -14,6 +14,8 @@ images/*
 nerf_pytorch/data/nerf_synthetic/lego/*
 nerf_pytorch/__pycache__/*
 nerf_pytorch/logs/*
+nerf_pytorch/.gitignore
+nerf_pytorch/.gitmodules
 
 # Ignore tar files
 *.tar
