@@ -1,5 +1,3 @@
-
-
 # Ignore temporary files
 *.pyc
 *.pyo
@@ -13,9 +11,9 @@ __pycache__/
 
 # Ignore specific files and directories
 images/*
-nerf_pytorch/data/nerf_synthetic/lego/*
-__pycache__/*
-nerf_pytorch/logs/*
+nerf_pytorchokmo/data/nerf_synthetic/lego/*
+nerf_pytorchokmo/__pycache__/*
+nerf_pytorchokmo/logs/*
 
 # Ignore tar files
 *.tar
