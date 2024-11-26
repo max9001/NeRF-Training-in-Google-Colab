@@ -1,5 +1,4 @@
-# Ignore notebook checkpoints
-.ipynb_checkpoints/
+
 
 # Ignore temporary files
 *.pyc
@@ -14,9 +13,9 @@ __pycache__/
 
 # Ignore specific files and directories
 images/*
-data/nerf_synthetic/lego/*
+nerf_pytorch/data/nerf_synthetic/lego/*
 __pycache__/*
-logs/*
+nerf_pytorch/logs/*
 
 # Ignore tar files
 *.tar
