@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from tqdm import tqdm, trange
 
 import matplotlib.pyplot as plt
+import argparse
 
 from run_nerf_helpers import *
 
@@ -741,6 +742,7 @@ def generate_render(render_args):
         config=render_args.config,
         ft_path=render_args.ft_path,
         dataset_type=render_args.dataset_type,
+        expname=render_args.expname,
         half_res=render_args.half_res,
         num_frames = render_args.num_frames,
 
