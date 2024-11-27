@@ -6,7 +6,7 @@ This project aims to collect code from various sources to create an accessible p
 ## Photo Collection
 ### Photos of Checkerboard
   - Purpose: Required to calculate the intrinsic parameters of the user's camera.
-  - Approach: Follow Zhang's method for camera calibration [[1]](https://doi.org/10.1109/34.888718}{10.1109/34.888718).
+  - Approach: Follow Zhang's method for camera calibration [[1]](https://doi.org/10.1109/34.888718).
 
 ### Photos of Scene
   - Ambiguity: Requires research on best practices for capturing photos suitable for NeRF. 
