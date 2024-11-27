@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from tqdm import tqdm, trange
 
 import matplotlib.pyplot as plt
+import argparse
 
 from run_nerf_helpers import *
 
@@ -418,124 +419,62 @@ def render_rays(ray_batch,
     return ret
 
 
-def config_parser():
-
-    import configargparse
-    parser = configargparse.ArgumentParser()
-    parser.add_argument('--config', is_config_file=True, 
-                        help='config file path')
-    parser.add_argument("--expname", type=str, 
-                        help='experiment name')
-    parser.add_argument("--basedir", type=str, default='./logs/', 
-                        help='where to store ckpts and logs')
-    parser.add_argument("--datadir", type=str, default='./data/llff/fern', 
-                        help='input data directory')
-
-    # training options
-    parser.add_argument("--netdepth", type=int, default=8, 
-                        help='layers in network')
-    parser.add_argument("--netwidth", type=int, default=256, 
-                        help='channels per layer')
-    parser.add_argument("--netdepth_fine", type=int, default=8, 
-                        help='layers in fine network')
-    parser.add_argument("--netwidth_fine", type=int, default=256, 
-                        help='channels per layer in fine network')
-    parser.add_argument("--N_rand", type=int, default=32*32*4, 
-                        help='batch size (number of random rays per gradient step)')
-    parser.add_argument("--lrate", type=float, default=5e-4, 
-                        help='learning rate')
-    parser.add_argument("--lrate_decay", type=int, default=250, 
-                        help='exponential learning rate decay (in 1000 steps)')
-    parser.add_argument("--chunk", type=int, default=1024*32, 
-                        help='number of rays processed in parallel, decrease if running out of memory')
-    parser.add_argument("--netchunk", type=int, default=1024*64, 
-                        help='number of pts sent through network in parallel, decrease if running out of memory')
-    parser.add_argument("--no_batching", action='store_true', 
-                        help='only take random rays from 1 image at a time')
-    parser.add_argument("--no_reload", action='store_true', 
-                        help='do not reload weights from saved ckpt')
-    parser.add_argument("--ft_path", type=str, default=None, 
-                        help='specific weights npy file to reload for coarse network')
-
-    # rendering options
-    parser.add_argument("--N_samples", type=int, default=64, 
-                        help='number of coarse samples per ray')
-    parser.add_argument("--N_importance", type=int, default=0,
-                        help='number of additional fine samples per ray')
-    parser.add_argument("--perturb", type=float, default=1.,
-                        help='set to 0. for no jitter, 1. for jitter')
-    parser.add_argument("--use_viewdirs", action='store_true', 
-                        help='use full 5D input instead of 3D')
-    parser.add_argument("--i_embed", type=int, default=0, 
-                        help='set 0 for default positional encoding, -1 for none')
-    parser.add_argument("--multires", type=int, default=10, 
-                        help='log2 of max freq for positional encoding (3D location)')
-    parser.add_argument("--multires_views", type=int, default=4, 
-                        help='log2 of max freq for positional encoding (2D direction)')
-    parser.add_argument("--raw_noise_std", type=float, default=0., 
-                        help='std dev of noise added to regularize sigma_a output, 1e0 recommended')
-
-    parser.add_argument("--render_only", action='store_true', 
-                        help='do not optimize, reload weights and render out render_poses path')
-    parser.add_argument("--render_test", action='store_true', 
-                        help='render the test set instead of render_poses path')
-    parser.add_argument("--render_factor", type=int, default=0, 
-                        help='downsampling factor to speed up rendering, set 4 or 8 for fast preview')
-
-    # training options
-    parser.add_argument("--precrop_iters", type=int, default=0,
-                        help='number of steps to train on central crops')
-    parser.add_argument("--precrop_frac", type=float,
-                        default=.5, help='fraction of img taken for central crops') 
-
-    # dataset options
-    parser.add_argument("--dataset_type", type=str, default='llff', 
-                        help='options: llff / blender / deepvoxels')
-    parser.add_argument("--testskip", type=int, default=8, 
-                        help='will load 1/N images from test/val sets, useful for large datasets like deepvoxels')
-
-    ## deepvoxels flags
-    parser.add_argument("--shape", type=str, default='greek', 
-                        help='options : armchair / cube / greek / vase')
-
-    ## blender flags
-    parser.add_argument("--white_bkgd", action='store_true', 
-                        help='set to render synthetic data on a white bkgd (always use for dvoxels)')
-    parser.add_argument("--half_res", action='store_true', 
-                        help='load blender synthetic data at 400x400 instead of 800x800')
-
-    ## llff flags
-    parser.add_argument("--factor", type=int, default=8, 
-                        help='downsample factor for LLFF images')
-    parser.add_argument("--no_ndc", action='store_true', 
-                        help='do not use normalized device coordinates (set for non-forward facing scenes)')
-    parser.add_argument("--lindisp", action='store_true', 
-                        help='sampling linearly in disparity rather than depth')
-    parser.add_argument("--spherify", action='store_true', 
-                        help='set for spherical 360 scenes')
-    parser.add_argument("--llffhold", type=int, default=8, 
-                        help='will take every 1/N images as LLFF test set, paper uses 8')
-
-    # logging/saving options
-    parser.add_argument("--i_print",   type=int, default=100, 
-                        help='frequency of console printout and metric loggin')
-    parser.add_argument("--i_img",     type=int, default=500, 
-                        help='frequency of tensorboard image logging')
-    parser.add_argument("--i_weights", type=int, default=10000, 
-                        help='frequency of weight ckpt saving')
-    parser.add_argument("--i_testset", type=int, default=50000, 
-                        help='frequency of testset saving')
-    parser.add_argument("--i_video",   type=int, default=50000, 
-                        help='frequency of render_poses video saving')
-
-    return parser
 
 
-def train(args):
 
-    # parser = config_parser()
-    # args = parser.parse_args()
-    
+
+
+def train(train_args):
+
+    args = argparse.Namespace(
+        
+        basedir=train_args.basedir,
+        datadir=train_args.datadir,
+        config=train_args.config,
+        ft_path=train_args.ft_path,
+        dataset_type=train_args.dataset_type,
+        expname=train_args.expname,
+        N_iters=train_args.N_iters,
+        i_img=train_args.i_img,
+        i_print=train_args.i_print,
+        i_weights=train_args.i_weights,
+        half_res=train_args.half_res,
+
+        num_frames = 40,    # Default: 40, Number of frames generated
+        N_importance=128,   # Default: 0, Number of additional fine samples per ray
+        N_rand=1024,        # Default: 32*32*4, Batch size (number of random rays per gradient step)
+        N_samples=64,       # Default: 64, Number of coarse samples per ray
+        chunk=32768,        # Default: 1024*32, Number of rays processed in parallel, decrease if running out of memory
+        factor=8,           # Default: 8, Downsample factor for LLFF images
+        i_embed=0,          # Default: 0, Set 0 for default positional encoding, -1 for none
+        lindisp=False,      # Default: False, Sampling linearly in disparity rather than depth
+        llffhold=8,         # Default: 8, Will take every 1/N images as LLFF test set
+        lrate=0.0005,       # Default: 5e-4, Learning rate
+        lrate_decay=500,    # Default: 250, Exponential learning rate decay (in 1000 steps)
+        multires=10,        # Default: 10, Log2 of max freq for positional encoding (3D location)
+        multires_views=4,   # Default: 4, Log2 of max freq for positional encoding (2D direction)
+        netchunk=65536,     # Default: 1024*64, Number of points sent through network in parallel
+        netdepth=8,         # Default: 8, Layers in network
+        netdepth_fine=8,    # Default: 8, Layers in fine network
+        netwidth=256,       # Default: 256, Channels per layer
+        netwidth_fine=256,  # Default: 256, Channels per layer in fine network
+        no_batching=True,   # Default: False, Only take random rays from 1 image at a time
+        no_ndc=False,       # Default: False, Do not use normalized device coordinates (set for non-forward facing scenes)
+        no_reload=False,    # Default: False, Do not reload weights from saved checkpoint
+        perturb=1.0,        # Default: 1.0, Set to 0. for no jitter, 1. for jitter
+        precrop_frac=0.5,   # Default: 0.5, Fraction of image taken for central crops
+        precrop_iters=500,  # Default: 0, Number of steps to train on central crops
+        raw_noise_std=0.0,  # Default: 0.0, Std dev of noise added to regularize sigma_a output
+        render_factor=0,    # Default: 0, Downsampling factor to speed up rendering
+        render_test=False,  # Default: False, Render the test set instead of render_poses path
+        shape='greek',      # Default: 'greek', Shape for deepvoxels (options: armchair / cube / greek / vase)
+        spherify=False,     # Default: False, Set for spherical 360 scenes
+        testskip=8,         # Default: 8, Will load 1/N images from test/val sets, useful for large datasets like deepvoxels
+        use_viewdirs=True,  # Default: True, Use full 5D input instead of 3D
+        white_bkgd=True     # Default: False, Set to render synthetic data on a white background (always use for dvoxels)
+    )
+
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     np.random.seed(0)
     DEBUG = False
@@ -573,7 +512,7 @@ def train(args):
         print('NEAR FAR', near, far)
 
     elif args.dataset_type == 'blender':
-        images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.half_res, args.testskip)
+        images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.num_frames, args.half_res, args.testskip)
         print('Loaded blender', images.shape, render_poses.shape, hwf, args.datadir)
         i_train, i_val, i_test = i_split
 
@@ -656,26 +595,6 @@ def train(args):
     # Move testing data to GPU
     render_poses = torch.Tensor(render_poses).to(device)
 
-    # Short circuit if only rendering out from trained model
-    if args.render_only:
-        print('RENDER ONLY')
-        with torch.no_grad():
-            if args.render_test:
-                # render_test switches to test poses
-                images = images[i_test]
-            else:
-                # Default is smoother render_poses path
-                images = None
-
-            testsavedir = os.path.join(basedir, expname, 'renderonly_{}_{:06d}'.format('test' if args.render_test else 'path', start))
-            os.makedirs(testsavedir, exist_ok=True)
-            print('test poses shape', render_poses.shape)
-
-            rgbs, _ = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test, gt_imgs=images, savedir=testsavedir, render_factor=args.render_factor)
-            print('Done rendering', testsavedir)
-            imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
-
-            return
 
     # Prepare raybatch tensor if batching random rays
     N_rand = args.N_rand
@@ -793,8 +712,6 @@ def train(args):
         ################################
 
         dt = time.time()-time0
-        # print(f"Step: {global_step}, Loss: {loss}, Time: {dt}")
-        #####           end            #####
 
         # Rest is logging
         if i%args.i_weights==0:
@@ -806,83 +723,68 @@ def train(args):
                 'optimizer_state_dict': optimizer.state_dict(),
             }, path)
             print('Saved checkpoints at', path)
-
-        if i%args.i_video==0 and i > 0:
-            # Turn on testing mode
-            with torch.no_grad():
-                rgbs, disps = render_path(render_poses, hwf, K, args.chunk, render_kwargs_test)
-            print('Done, saving', rgbs.shape, disps.shape)
-            moviebase = os.path.join(basedir, expname, '{}_spiral_{:06d}_'.format(expname, i))
-            imageio.mimwrite(moviebase + 'rgb.mp4', to8b(rgbs), fps=30, quality=8)
-            imageio.mimwrite(moviebase + 'disp.mp4', to8b(disps / np.max(disps)), fps=30, quality=8)
-
-            # if args.use_viewdirs:
-            #     render_kwargs_test['c2w_staticcam'] = render_poses[0][:3,:4]
-            #     with torch.no_grad():
-            #         rgbs_still, _ = render_path(render_poses, hwf, args.chunk, render_kwargs_test)
-            #     render_kwargs_test['c2w_staticcam'] = None
-            #     imageio.mimwrite(moviebase + 'rgb_still.mp4', to8b(rgbs_still), fps=30, quality=8)
-
-        if i%args.i_testset==0 and i > 0:
-            testsavedir = os.path.join(basedir, expname, 'testset_{:06d}'.format(i))
-            os.makedirs(testsavedir, exist_ok=True)
-            print('test poses shape', poses[i_test].shape)
-            with torch.no_grad():
-                render_path(torch.Tensor(poses[i_test]).to(device), hwf, K, args.chunk, render_kwargs_test, gt_imgs=images[i_test], savedir=testsavedir)
-            print('Saved test set')
-
-
     
         if i%args.i_print==0:
             tqdm.write(f"[TRAIN] Iter: {i} Loss: {loss.item()}  PSNR: {psnr.item()}")
-        """
-            print(expname, i, psnr.numpy(), loss.numpy(), global_step.numpy())
-            print('iter time {:.05f}'.format(dt))
 
-            with tf.contrib.summary.record_summaries_every_n_global_steps(args.i_print):
-                tf.contrib.summary.scalar('loss', loss)
-                tf.contrib.summary.scalar('psnr', psnr)
-                tf.contrib.summary.histogram('tran', trans)
-                if args.N_importance > 0:
-                    tf.contrib.summary.scalar('psnr0', psnr0)
-
-
-            if i%args.i_img==0:
-
-                # Log a rendered validation view to Tensorboard
-                img_i=np.random.choice(i_val)
-                target = images[img_i]
-                pose = poses[img_i, :3,:4]
-                with torch.no_grad():
-                    rgb, disp, acc, extras = render(H, W, focal, chunk=args.chunk, c2w=pose,
-                                                        **render_kwargs_test)
-
-                psnr = mse2psnr(img2mse(rgb, target))
-
-                with tf.contrib.summary.record_summaries_every_n_global_steps(args.i_img):
-
-                    tf.contrib.summary.image('rgb', to8b(rgb)[tf.newaxis])
-                    tf.contrib.summary.image('disp', disp[tf.newaxis,...,tf.newaxis])
-                    tf.contrib.summary.image('acc', acc[tf.newaxis,...,tf.newaxis])
-
-                    tf.contrib.summary.scalar('psnr_holdout', psnr)
-                    tf.contrib.summary.image('rgb_holdout', target[tf.newaxis])
-
-
-                if args.N_importance > 0:
-
-                    with tf.contrib.summary.record_summaries_every_n_global_steps(args.i_img):
-                        tf.contrib.summary.image('rgb0', to8b(extras['rgb0'])[tf.newaxis])
-                        tf.contrib.summary.image('disp0', extras['disp0'][tf.newaxis,...,tf.newaxis])
-                        tf.contrib.summary.image('z_std', extras['z_std'][tf.newaxis,...,tf.newaxis])
-        """
 
         global_step += 1
         
         
         
         
-def generate_render(args):
+def generate_render(render_args):
+
+    args = argparse.Namespace(
+
+        basedir=render_args.basedir,
+        datadir=render_args.datadir,
+        config=render_args.config,
+        ft_path=render_args.ft_path,
+        dataset_type=render_args.dataset_type,
+        expname=render_args.expname,
+        half_res=render_args.half_res,
+        num_frames = render_args.num_frames,
+
+        # all args below are rarely if ever changed
+
+        N_iters=100001,       # Default: 200000, Number of iterations (training steps)
+        i_img=999999999,         # Default: 500, Frequency of tensorboard image logging
+        i_print=100,        # Default: 100, Frequency of console printout and metric logging
+        i_weights=10000,     # Default: 10000, Frequency of weight ckpt saving
+        N_importance=128,   # Default: 0, Number of additional fine samples per ray
+        N_rand=1024,        # Default: 32*32*4, Batch size (number of random rays per gradient step)
+        N_samples=64,       # Default: 64, Number of coarse samples per ray
+        chunk=32768,        # Default: 1024*32, Number of rays processed in parallel, decrease if running out of memory
+        factor=8,           # Default: 8, Downsample factor for LLFF images
+        i_embed=0,          # Default: 0, Set 0 for default positional encoding, -1 for none
+        lindisp=False,      # Default: False, Sampling linearly in disparity rather than depth
+        llffhold=8,         # Default: 8, Will take every 1/N images as LLFF test set
+        lrate=0.0005,       # Default: 5e-4, Learning rate
+        lrate_decay=500,    # Default: 250, Exponential learning rate decay (in 1000 steps)
+        multires=10,        # Default: 10, Log2 of max freq for positional encoding (3D location)
+        multires_views=4,   # Default: 4, Log2 of max freq for positional encoding (2D direction)
+        netchunk=65536,     # Default: 1024*64, Number of points sent through network in parallel
+        netdepth=8,         # Default: 8, Layers in network
+        netdepth_fine=8,    # Default: 8, Layers in fine network
+        netwidth=256,       # Default: 256, Channels per layer
+        netwidth_fine=256,  # Default: 256, Channels per layer in fine network
+        no_batching=True,   # Default: False, Only take random rays from 1 image at a time
+        no_ndc=False,       # Default: False, Do not use normalized device coordinates (set for non-forward facing scenes)
+        no_reload=False,    # Default: False, Do not reload weights from saved checkpoint
+        perturb=1.0,        # Default: 1.0, Set to 0. for no jitter, 1. for jitter
+        precrop_frac=0.5,   # Default: 0.5, Fraction of image taken for central crops
+        precrop_iters=500,  # Default: 0, Number of steps to train on central crops
+        raw_noise_std=0.0,  # Default: 0.0, Std dev of noise added to regularize sigma_a output
+        render_factor=0,    # Default: 0, Downsampling factor to speed up rendering
+        render_test=False,  # Default: False, Render the test set instead of render_poses path
+        shape='greek',      # Default: 'greek', Shape for deepvoxels (options: armchair / cube / greek / vase)
+        spherify=False,     # Default: False, Set for spherical 360 scenes
+        testskip=8,         # Default: 8, Will load 1/N images from test/val sets, useful for large datasets like deepvoxels
+        use_viewdirs=True,  # Default: True, Use full 5D input instead of 3D
+        white_bkgd=True     # Default: False, Set to render synthetic data on a white background (always use for dvoxels)
+    )
+
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     np.random.seed(0)
@@ -919,7 +821,7 @@ def generate_render(args):
         print('NEAR FAR', near, far)
 
     elif args.dataset_type == 'blender':
-        images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.half_res, args.testskip)
+        images, poses, render_poses, hwf, i_split = load_blender_data(args.datadir, args.num_frames, args.half_res, args.testskip)
         print('Loaded blender', images.shape, render_poses.shape, hwf, args.datadir)
         i_train, i_val, i_test = i_split
 
@@ -1021,3 +923,99 @@ def generate_render(args):
         imageio.mimwrite(os.path.join(testsavedir, 'video.mp4'), to8b(rgbs), fps=30, quality=8)
 
         return
+
+
+"""
+args to remove
+- render only
+- i video
+- i testset
+
+
+    train_args = argparse.Namespace(
+        basedir='/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/logs',  # Where to store ckpts and logs
+        datadir='/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/data/nerf_synthetic/lego',  # Input data directory
+        config='/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/configs/lego.txt',  # Config file path
+        ft_path= '/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/logs/blender_paper_lego/010000.tar',       # Specific weights tar file to reload for coarse network
+
+        dataset_type='blender',  # Default: 'llff', Dataset type (options: llff / blender / deepvoxels)
+        expname='blender_paper_lego',  # Default: None, Experiment name
+
+        N_iters=100001,       # Default: 200000, Number of iterations (training steps)
+        i_img=999999999,         # Default: 500, Frequency of tensorboard image logging
+        i_print=100,        # Default: 100, Frequency of console printout and metric logging
+        i_weights=10000,     # Default: 10000, Frequency of weight ckpt saving
+
+        half_res=False,     # Default: False, Load blender synthetic data at 400x400 instead of 800x800
+    )
+
+    render_args = argparse.Namespace(
+        
+        basedir='/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/logs',  # Where to store ckpts and logs
+        datadir='/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/data/nerf_synthetic/lego',  # Input data directory
+        config='/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/configs/lego.txt',  # Config file path
+        ft_path= '/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/logs/blender_paper_lego/010000.tar',       # Specific weights tar file to reload for coarse network
+        dataset_type='blender',  # Default: 'llff', Dataset type (options: llff / blender / deepvoxels)
+        expname='blender_paper_lego',  # Default: None, Experiment name
+        half_res=False,     # Default: False, Load blender synthetic data at 400x400 instead of 800x800
+        num_frames = 40,    # Default: 40, Number of frames generated
+    )
+
+
+args = argparse.Namespace(
+        
+        basedir='/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/logs',  # Where to store ckpts and logs
+        datadir='/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/data/nerf_synthetic/lego',  # Input data directory
+        config='/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/configs/lego.txt',  # Config file path
+        ft_path= '/content/drive/My Drive/NeRF-Training-in-Google-Colab/nerf_pytorch/logs/blender_paper_lego/010000.tar',       # Specific weights tar file to reload for coarse network
+
+        dataset_type='blender',  # Default: 'llff', Dataset type (options: llff / blender / deepvoxels)
+        expname='blender_paper_lego',  # Default: None, Experiment name
+
+        N_iters=100001,       # Default: 200000, Number of iterations (training steps)
+        i_img=999999999,         # Default: 500, Frequency of tensorboard image logging
+        i_print=100,        # Default: 100, Frequency of console printout and metric logging
+        i_weights=10000,     # Default: 10000, Frequency of weight ckpt saving
+
+        half_res=False,     # Default: False, Load blender synthetic data at 400x400 instead of 800x800
+
+        # all args below are rarely if ever changed
+
+        N_importance=128,   # Default: 0, Number of additional fine samples per ray
+        N_rand=1024,        # Default: 32*32*4, Batch size (number of random rays per gradient step)
+        N_samples=64,       # Default: 64, Number of coarse samples per ray
+        chunk=32768,        # Default: 1024*32, Number of rays processed in parallel, decrease if running out of memory
+        factor=8,           # Default: 8, Downsample factor for LLFF images
+        i_embed=0,          # Default: 0, Set 0 for default positional encoding, -1 for none
+        lindisp=False,      # Default: False, Sampling linearly in disparity rather than depth
+        llffhold=8,         # Default: 8, Will take every 1/N images as LLFF test set
+        lrate=0.0005,       # Default: 5e-4, Learning rate
+        lrate_decay=500,    # Default: 250, Exponential learning rate decay (in 1000 steps)
+        multires=10,        # Default: 10, Log2 of max freq for positional encoding (3D location)
+        multires_views=4,   # Default: 4, Log2 of max freq for positional encoding (2D direction)
+        netchunk=65536,     # Default: 1024*64, Number of points sent through network in parallel
+        netdepth=8,         # Default: 8, Layers in network
+        netdepth_fine=8,    # Default: 8, Layers in fine network
+        netwidth=256,       # Default: 256, Channels per layer
+        netwidth_fine=256,  # Default: 256, Channels per layer in fine network
+        no_batching=True,   # Default: False, Only take random rays from 1 image at a time
+        no_ndc=False,       # Default: False, Do not use normalized device coordinates (set for non-forward facing scenes)
+        no_reload=False,    # Default: False, Do not reload weights from saved checkpoint
+        perturb=1.0,        # Default: 1.0, Set to 0. for no jitter, 1. for jitter
+        precrop_frac=0.5,   # Default: 0.5, Fraction of image taken for central crops
+        precrop_iters=500,  # Default: 0, Number of steps to train on central crops
+        raw_noise_std=0.0,  # Default: 0.0, Std dev of noise added to regularize sigma_a output
+        render_factor=0,    # Default: 0, Downsampling factor to speed up rendering
+        render_test=False,  # Default: False, Render the test set instead of render_poses path
+        shape='greek',      # Default: 'greek', Shape for deepvoxels (options: armchair / cube / greek / vase)
+        spherify=False,     # Default: False, Set for spherical 360 scenes
+        testskip=8,         # Default: 8, Will load 1/N images from test/val sets, useful for large datasets like deepvoxels
+        use_viewdirs=True,  # Default: True, Use full 5D input instead of 3D
+        white_bkgd=True     # Default: False, Set to render synthetic data on a white background (always use for dvoxels)
+
+
+
+"""
+
+
+
