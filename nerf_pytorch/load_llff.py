@@ -71,22 +71,22 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
     
     sfx = ''
     
-    if factor is not None:
-        sfx = '_{}'.format(factor)
-        _minify(basedir, factors=[factor])
-        factor = factor
-    elif height is not None:
-        factor = sh[0] / float(height)
-        width = int(sh[1] / factor)
-        _minify(basedir, resolutions=[[height, width]])
-        sfx = '_{}x{}'.format(width, height)
-    elif width is not None:
-        factor = sh[1] / float(width)
-        height = int(sh[0] / factor)
-        _minify(basedir, resolutions=[[height, width]])
-        sfx = '_{}x{}'.format(width, height)
-    else:
-        factor = 1
+    # if factor is not None:
+    #     sfx = '_{}'.format(factor)
+    #     _minify(basedir, factors=[factor])
+    #     factor = factor
+    # elif height is not None:
+    #     factor = sh[0] / float(height)
+    #     width = int(sh[1] / factor)
+    #     _minify(basedir, resolutions=[[height, width]])
+    #     sfx = '_{}x{}'.format(width, height)
+    # elif width is not None:
+    #     factor = sh[1] / float(width)
+    #     height = int(sh[0] / factor)
+    #     _minify(basedir, resolutions=[[height, width]])
+    #     sfx = '_{}x{}'.format(width, height)
+    # else:
+    #     factor = 1
     
     imgdir = os.path.join(basedir, 'images' + sfx)
     if not os.path.exists(imgdir):
@@ -107,11 +107,12 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
     
     def imread(f):
         if f.endswith('png'):
-            return imageio.imread(f, ignoregamma=True)
+            # return imageio.imread(f, ignoregamma=True)
+            return imageio.imread(f, apply_gamma=False)
         else:
             return imageio.imread(f)
         
-    imgs = imgs = [imread(f)[...,:3]/255. for f in imgfiles]
+    imgs = [imread(f)[...,:3]/255. for f in imgfiles]
     imgs = np.stack(imgs, -1)  
     
     print('Loaded image data', imgs.shape, poses[:,-1,0])
@@ -240,7 +241,7 @@ def spherify_poses(poses, bds):
     return poses_reset, new_poses, bds
     
 
-def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=False, path_zflat=False):
+def load_llff_data(basedir, factor=8, num_frames=60, recenter=True, bd_factor=.75, spherify=False, path_zflat=False):
     
 
     poses, bds, imgs = _load_data(basedir, factor=factor) # factor=8 downsamples original imgs by 8x
@@ -286,7 +287,7 @@ def load_llff_data(basedir, factor=8, recenter=True, bd_factor=.75, spherify=Fal
         tt = poses[:,:3,3] # ptstocam(poses[:3,3,:].T, c2w).T
         rads = np.percentile(np.abs(tt), 90, 0)
         c2w_path = c2w
-        N_views = 120
+        N_views = num_frames
         N_rots = 2
         if path_zflat:
 #             zloc = np.percentile(tt, 10, 0)[2]

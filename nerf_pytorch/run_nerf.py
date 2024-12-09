@@ -439,13 +439,14 @@ def train(train_args):
         i_print=train_args.i_print,
         i_weights=train_args.i_weights,
         half_res=train_args.half_res,
+        no_reload=train_args.no_reload,
 
         num_frames = 40,    # Default: 40, Number of frames generated
         N_importance=128,   # Default: 0, Number of additional fine samples per ray
         N_rand=1024,        # Default: 32*32*4, Batch size (number of random rays per gradient step)
         N_samples=64,       # Default: 64, Number of coarse samples per ray
         chunk=32768,        # Default: 1024*32, Number of rays processed in parallel, decrease if running out of memory
-        factor=8,           # Default: 8, Downsample factor for LLFF images
+        factor=1,           # Default: 8, Downsample factor for LLFF images
         i_embed=0,          # Default: 0, Set 0 for default positional encoding, -1 for none
         lindisp=False,      # Default: False, Sampling linearly in disparity rather than depth
         llffhold=8,         # Default: 8, Will take every 1/N images as LLFF test set
@@ -460,7 +461,6 @@ def train(train_args):
         netwidth_fine=256,  # Default: 256, Channels per layer in fine network
         no_batching=True,   # Default: False, Only take random rays from 1 image at a time
         no_ndc=False,       # Default: False, Do not use normalized device coordinates (set for non-forward facing scenes)
-        no_reload=False,    # Default: False, Do not reload weights from saved checkpoint
         perturb=1.0,        # Default: 1.0, Set to 0. for no jitter, 1. for jitter
         precrop_frac=0.5,   # Default: 0.5, Fraction of image taken for central crops
         precrop_iters=500,  # Default: 0, Number of steps to train on central crops
@@ -793,7 +793,7 @@ def generate_render(render_args):
 
     K = None
     if args.dataset_type == 'llff':
-        images, poses, bds, render_poses, i_test = load_llff_data(args.datadir, args.factor,
+        images, poses, bds, render_poses, i_test = load_llff_data(args.datadir, args.factor, args.num_frames,
                                                                 recenter=True, bd_factor=.75,
                                                                 spherify=args.spherify)
         hwf = poses[0,:3,-1]

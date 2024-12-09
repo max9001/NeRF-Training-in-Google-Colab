@@ -16,6 +16,7 @@ nerf_pytorch/__pycache__/*
 nerf_pytorch/logs/*
 nerf_pytorch/.gitignore
 nerf_pytorch/.gitmodules
+LLFF/checkpoints/papermodel/*
 
 # Ignore tar files
 *.tar
