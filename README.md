@@ -2,8 +2,7 @@
 
 This project provides a straightforward, easy-to-use Google Colab notebook for training Neural Radiance Fields (NeRFs) using only a free Google Colab account. It aims to make NeRF experimentation accessible to users without powerful local GPUs.
 
-## Abstract (from the project writeup)
-
+## Abstract 
 The goal of this project was to modify and compile existing code into one straightforward, easy-to-use notebook compatible with Google Colab. As powerful GPUs are necessary for any ML task, it can be difficult for those with less powerful computers, like laptops, to be able to run ML training. Although solutions to this already exist for UCI students (HPC3), I wanted to create a solution that anyone could use. As Google allows any user to connect to a Tesla T4 GPU, Google Colab was a perfect target for my project. This repository documents the changes made to existing code and the results produced, leveraging free Colab resources.
 
 ## Key Features & Modifications
